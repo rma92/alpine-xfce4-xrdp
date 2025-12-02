@@ -29,7 +29,7 @@ RUN abuild fetch; \
     abuild build; \
     abuild rootpkg;
 
-ARG PULSE_VER="16.1"
+ARG PULSE_VER="17.0"
 ENV PULSE_VER=${PULSE_VER}
 WORKDIR /tmp/aports/community/pulseaudio
 RUN abuild fetch; \
@@ -132,7 +132,6 @@ RUN addgroup alpine \
 # prepare xrdp key
 RUN xrdp-keygen xrdp auto
 
-ADD 999999_001.wav /tone.wav
 EXPOSE 3389 22
 VOLUME ["/etc/ssh"]
 ENTRYPOINT ["/bin/docker-entrypoint.sh"]

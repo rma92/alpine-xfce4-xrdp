@@ -4,8 +4,6 @@ Alpine linux xrdp server with xfce4 rdp server with vlc and chromium.
 The xrdp audio is working and everything runs unprivileged.
 Sessions run in firejail for security. Chromium sandbox is disabled.
 
-
-
 # Start the server
 
 ```bash
@@ -28,3 +26,11 @@ docker exec -ti rdp passwd alpine
 ```bash
 docker exec -ti rdp adduser myuser
 ```
+
+# Building
+cd to this directory.
+```
+docker build --tag 'alpine-xfce4-xrdp' .
+```
+Run the built container: `docker run alpine-xfce4-xrdp`
+
