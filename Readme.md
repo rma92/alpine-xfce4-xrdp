@@ -27,10 +27,18 @@ docker exec -ti rdp passwd alpine
 docker exec -ti rdp adduser myuser
 ```
 
+# Run shell inside for management
+```bash
+docker exec -ti 'alpine-xfce4-xrdp' /bin/sh
+```
+
 # Building
 cd to this directory.
 ```
 docker build --tag 'alpine-xfce4-xrdp' .
 ```
-Run the built container: `docker run alpine-xfce4-xrdp`
+Run the built container:
+```
+docker run -d --name alpine-xfce4-xrdp --shm-size=1g -p 33389:3389 -p 33322:22 localhost/rdp5:latest
+```
 

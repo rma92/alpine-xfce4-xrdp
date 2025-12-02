@@ -103,6 +103,7 @@ RUN apk --update --no-cache add \
     xinit \
     xorg-server \
     xorgxrdp \
+    xterm \
     xrdp \
 && rm -rf /tmp/* /var/cache/apk/*
 
@@ -123,6 +124,17 @@ RUN mkdir -p /var/log/supervisor
 ADD etc /etc
 ADD bin /bin
 
+# Disable XFCE compositing (improved RDP performance)
+RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
+ && cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfwm4" version="1.0">
+  <property name="general" type="empty">
+    <property name="use_compositing" type="bool" value="false"/>
+  </property>
+</channel>
+EOF
+
 # prepare user alpine
 RUN addgroup alpine \
 && adduser  -G alpine -s /bin/sh -D alpine \
@@ -131,6 +143,10 @@ RUN addgroup alpine \
 
 # prepare xrdp key
 RUN xrdp-keygen xrdp auto
+
+# Make startwm.sh executable by alpine user.
+RUN chmod 755 /etc/xrdp \
+ && chmod 755 /etc/xrdp/startwm.sh
 
 EXPOSE 3389 22
 VOLUME ["/etc/ssh"]
