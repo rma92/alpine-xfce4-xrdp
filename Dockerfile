@@ -84,8 +84,11 @@ RUN apk --update --no-cache add \
     paper-gtk-theme \
     paper-icon-theme \
     pavucontrol \
+    pkgconf \
+    openssl \
     pulseaudio \
     pulseaudio-utils \
+    pulseaudio-dev \
     pulsemixer \
     setxkbmap \
     slim \
@@ -108,16 +111,24 @@ RUN apk --update --no-cache add \
 && rm -rf /tmp/* /var/cache/apk/*
 
 # RUN rm -rf /usr/lib/pulse-"${PULSE_VER}"/modules
-RUN ls /usr/lib/pulseaudio
-COPY --from=builder /usr/lib/pulseaudio/modules /usr/lib/pulseaudio/modules
-COPY --from=builder  /tmp/pulseaudio-module-xrdp-0.6/src/.libs  /tmp/libs
-WORKDIR /tmp/libs
-COPY --from=builder  /tmp/pulseaudio-module-xrdp-0.6/build-aux/install-sh /bin
-RUN install-sh -c -d '/usr/lib/pulse-"${PULSE_VER}"/modules'
+#RUN ls /usr/lib/pulseaudio
+COPY --from=builder /tmp/pulseaudio-module-xrdp-0.6/src/.libs/module-xrdp-sink.so   /tmp/module-xrdp-sink.so
+COPY --from=builder /tmp/pulseaudio-module-xrdp-0.6/src/.libs/module-xrdp-source.so /tmp/module-xrdp-source.so
+# Install them into whatever dir this pulseaudio expects
+RUN PULSE_MODDIR="$(pkg-config --variable=modlibexecdir libpulse)" \
+ && mkdir -p "$PULSE_MODDIR" \
+ && install -m 755 /tmp/module-xrdp-sink.so   "$PULSE_MODDIR/module-xrdp-sink.so" \
+ && install -m 755 /tmp/module-xrdp-source.so "$PULSE_MODDIR/module-xrdp-source.so" \
+ && rm /tmp/module-xrdp-sink.so /tmp/module-xrdp-source.so
+#COPY --from=builder /usr/lib/pulseaudio/modules /usr/lib/pulseaudio/modules
+#COPY --from=builder  /tmp/pulseaudio-module-xrdp-0.6/src/.libs  /tmp/libs
+#WORKDIR /tmp/libs
+#COPY --from=builder  /tmp/pulseaudio-module-xrdp-0.6/build-aux/install-sh /bin
+#RUN install-sh -c -d '/usr/lib/pulse-"${PULSE_VER}"/modules'
 
 #COPY --from=builder /home/sdk/packages/testing/x86_64/firefox.apk /tmp/firefox.apk
-RUN ldconfig -n /usr/lib/pulseaudio/modules
-RUN ls $(pkg-config --variable=modlibexecdir libpulse)
+#RUN ldconfig -n /usr/lib/pulseaudio/modules
+#RUN ls $(pkg-config --variable=modlibexecdir libpulse)
 
 RUN mkdir -p /var/log/supervisor
 # add scripts/config
@@ -133,6 +144,30 @@ RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
     <property name="use_compositing" type="bool" value="false"/>
   </property>
 </channel>
+EOF
+
+# Replace startwm.sh with a script that starts dbus + pulseaudio, then XFCE
+RUN cat > /etc/xrdp/startwm.sh << 'EOF' \
+ && chmod 755 /etc/xrdp/startwm.sh
+#!/bin/sh
+
+# Make sure we have an XDG runtime dir (needed by pulseaudio and friends)
+if [ -z "$XDG_RUNTIME_DIR" ]; then
+    export XDG_RUNTIME_DIR=/tmp/xdg-runtime-$UID
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 700 "$XDG_RUNTIME_DIR"
+fi
+
+# Start a per-user dbus session (if not already running)
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval "$(dbus-launch --sh-syntax --exit-with-session)" || echo "dbus-launch failed" >&2
+fi
+
+# Start PulseAudio for this RDP session
+pulseaudio --start --exit-idle-time=-1 || echo "pulseaudio failed to start" >&2
+
+# Finally start XFCE
+exec startxfce4
 EOF
 
 # prepare user alpine
