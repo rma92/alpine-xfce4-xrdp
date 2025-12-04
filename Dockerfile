@@ -1,4 +1,5 @@
-FROM alpine as builder
+FROM alpine:3.23 as builder
+#FROM alpine as builder
 MAINTAINER Daniel Guerra
 
 #meta container, we want fresh builds
@@ -110,32 +111,24 @@ RUN apk --update --no-cache add \
     xrdp \
 && rm -rf /tmp/* /var/cache/apk/*
 
-# RUN rm -rf /usr/lib/pulse-"${PULSE_VER}"/modules
-#RUN ls /usr/lib/pulseaudio
 COPY --from=builder /tmp/pulseaudio-module-xrdp-0.6/src/.libs/module-xrdp-sink.so   /tmp/module-xrdp-sink.so
 COPY --from=builder /tmp/pulseaudio-module-xrdp-0.6/src/.libs/module-xrdp-source.so /tmp/module-xrdp-source.so
+
 # Install them into whatever dir this pulseaudio expects
 RUN PULSE_MODDIR="$(pkg-config --variable=modlibexecdir libpulse)" \
  && mkdir -p "$PULSE_MODDIR" \
  && install -m 755 /tmp/module-xrdp-sink.so   "$PULSE_MODDIR/module-xrdp-sink.so" \
  && install -m 755 /tmp/module-xrdp-source.so "$PULSE_MODDIR/module-xrdp-source.so" \
  && rm /tmp/module-xrdp-sink.so /tmp/module-xrdp-source.so
-#COPY --from=builder /usr/lib/pulseaudio/modules /usr/lib/pulseaudio/modules
-#COPY --from=builder  /tmp/pulseaudio-module-xrdp-0.6/src/.libs  /tmp/libs
-#WORKDIR /tmp/libs
-#COPY --from=builder  /tmp/pulseaudio-module-xrdp-0.6/build-aux/install-sh /bin
-#RUN install-sh -c -d '/usr/lib/pulse-"${PULSE_VER}"/modules'
-
-#COPY --from=builder /home/sdk/packages/testing/x86_64/firefox.apk /tmp/firefox.apk
-#RUN ldconfig -n /usr/lib/pulseaudio/modules
-#RUN ls $(pkg-config --variable=modlibexecdir libpulse)
 
 RUN mkdir -p /var/log/supervisor
+
 # add scripts/config
 ADD etc /etc
 ADD bin /bin
 
 # Disable XFCE compositing (improved RDP performance)
+# This should just be appended into xdg
 RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
  && cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -180,8 +173,7 @@ RUN addgroup alpine \
 RUN xrdp-keygen xrdp auto
 
 # Make startwm.sh executable by alpine user.
-RUN chmod 755 /etc/xrdp \
- && chmod 755 /etc/xrdp/startwm.sh
+RUN chmod 755 /etc/xrdp
 
 EXPOSE 3389 22
 VOLUME ["/etc/ssh"]
