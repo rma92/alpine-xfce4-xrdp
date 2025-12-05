@@ -29,7 +29,7 @@ docker exec -ti rdp adduser myuser
 
 # Run shell inside for management
 ```bash
-docker exec -ti 'alpine-xfce4-xrdp' /bin/sh
+docker exec -ti rdp /bin/sh
 ```
 
 # Building
@@ -39,6 +39,6 @@ docker build --tag 'alpine-xfce4-xrdp' .
 ```
 Run the built container:
 ```
-docker run -d --name alpine-xfce4-xrdp --shm-size=1g -p 33389:3389 -p 33322:22 'alpine-xfce4-xrdp'
+docker run -d --name rdp --shm-size=1g -p 33389:3389 -p 33322:22 'alpine-xfce4-xrdp'
 ```
 
