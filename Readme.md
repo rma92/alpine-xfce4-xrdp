@@ -39,6 +39,6 @@ docker build --tag 'alpine-xfce4-xrdp' .
 ```
 Run the built container:
 ```
-docker run -d --name rdp --shm-size=1g -p 33389:3389 -p 33322:22 'alpine-xfce4-xrdp'
+docker run -d --name rdp --shm-size=1g -p 3389:3389 'alpine-xfce4-xrdp'
 ```
 
