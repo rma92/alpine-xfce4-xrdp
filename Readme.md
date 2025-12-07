@@ -41,4 +41,8 @@ Run the built container:
 ```
 docker run -d --name rdp --shm-size=1g -p 3389:3389 'alpine-xfce4-xrdp'
 ```
+Run the built in container with RAMdisks to boost performance on spinning disk systems:
+```
+docker run -d --tmpfs /tmp:rw,size=1G --tmpfs /run:rw,size=64m --tmpfs /home/alpine/.cache:rw,size=1G --name rdp --shm-size=1g -p 33389:3389 'alpine-xfce4-xrdp'
+```
 

@@ -1,6 +1,6 @@
 FROM alpine:3.23 as builder
 #FROM alpine as builder
-MAINTAINER Daniel Guerra
+MAINTAINER Rich A Marino
 
 #meta container, we want fresh builds
 RUN apk update; \
@@ -77,7 +77,6 @@ RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing">>/etc/apk/repositor
 RUN apk --update --no-cache add \
     alpine-conf \
     bash \
-    chromium \
     dbus \
     faenza-icon-theme \
     libpulse \
@@ -98,7 +97,6 @@ RUN apk --update --no-cache add \
     thunar-volman \
     ttf-freefont \
     util-linux \
-    vim \
     xauth \
     xf86-input-synaptics \
     xfce4 \
@@ -109,6 +107,15 @@ RUN apk --update --no-cache add \
     xorgxrdp \
     xterm \
     xrdp \
+    dcron \
+    git \
+    gvim \
+    librewolf \
+    netsurf \
+    vim \
+    chicago95 \
+    chicago95-fonts \
+    chicago95-icons \
 && rm -rf /tmp/* /var/cache/apk/*
 
 COPY --from=builder /tmp/pulseaudio-module-xrdp-0.6/src/.libs/module-xrdp-sink.so   /tmp/module-xrdp-sink.so
@@ -128,21 +135,66 @@ ADD etc /etc
 ADD bin /bin
 
 # Disable XFCE compositing (improved RDP performance)
-# This should just be appended into xdg
 RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
  && cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <channel name="xfwm4" version="1.0">
   <property name="general" type="empty">
     <property name="use_compositing" type="bool" value="false"/>
+    <property name="theme" type="string" value="Chicago95"/>
   </property>
 </channel>
 EOF
 
-# Replace startwm.sh with a script that starts dbus + pulseaudio, then XFCE
+# Disable wallpaper
+RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
+ && cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml << 'EOF'
+<?xml version="1.1" encoding="UTF-8"?>                                          
+<channel name="xfce4-desktop" version="1.0">                                    
+  <property name="backdrop" type="empty">                                       
+    <property name="screen0" type="empty">                                      
+      <property name="monitor0" type="empty">                                   
+        <property name="workspace0" type="empty">                               
+          <property name="image-path" type="empty"/>                            
+          <property name="image-show" type="empty"/>                            
+          <property name="color-style" type="empty"/>                           
+          <property name="color1" type="empty"/>                                
+        </property>                                                             
+      </property>                                                               
+      <property name="monitorrdp0" type="empty">                                
+        <property name="workspace0" type="empty">                               
+          <property name="image-style" type="int" value="0"/>                   
+        </property>                                                             
+      </property>                                                               
+    </property>                                                                 
+  </property>                                                                   
+  <property name="last-settings-migration-version" type="uint" value="1"/>      
+</channel>
+EOF
+
+
+RUN mkdir -p /etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
+ && cat > /etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml << 'EOF'
+<?xml version="1.1" encoding="UTF-8"?>
+
+<channel name="xsettings" version="1.0">
+  <property name="Net" type="empty">
+    <property name="ThemeName" type="string" value="Chicago95"/>
+    <property name="IconThemeName" type="string" value="Chicago95"/>
+  </property>
+</channel>
+EOF
+
+#remove .xsession
+RUN rm -f /etc/skel/.xsession
+
 RUN cat > /etc/xrdp/startwm.sh << 'EOF' \
  && chmod 755 /etc/xrdp/startwm.sh
 #!/bin/sh
+
+# Load system and user profiles (for PATH, locale, etc.)
+[ -r /etc/profile ] && . /etc/profile
+[ -r "$HOME/.profile" ] && . "$HOME/.profile"
 
 # Make sure we have an XDG runtime dir (needed by pulseaudio and friends)
 if [ -z "$XDG_RUNTIME_DIR" ]; then
@@ -159,8 +211,19 @@ fi
 # Start PulseAudio for this RDP session
 pulseaudio --start --exit-idle-time=-1 || echo "pulseaudio failed to start" >&2
 
-# Finally start XFCE
+# If the user has their own X session script, hand off to it.
+# Using "exec" means we *never* come back here if it succeeds.
+if [ -x "$HOME/.xsession" ]; then
+    "$HOME/.xsession"
+fi
+
+if [ -x "$HOME/.xinitrc" ]; then
+    exec "$HOME/.xinitrc"
+fi
+
+# Fallback: no user script, so start the default DE
 exec startxfce4
+xterm
 EOF
 
 # prepare user alpine
@@ -171,6 +234,10 @@ RUN addgroup alpine \
 
 # prepare xrdp key
 RUN xrdp-keygen xrdp auto
+
+# XRDP config tweaks
+RUN sed -i 's/bitmap_compression=true/bitmap_compression=false/' /etc/xrdp/xrdp.ini \
+ && sed -i 's/security_layer=negotiate/security_layer=tls/' /etc/xrdp/xrdp.ini
 
 # Make startwm.sh executable by alpine user.
 RUN chmod 755 /etc/xrdp
